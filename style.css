@@ -1,0 +1,292 @@
+
+body{
+	background: #cddbe0;
+}
+#dash{
+
+}
+
+#maps{
+	width: 740px;
+}
+
+#coincontainer{
+	border: 1px solid red;
+	position: relative;
+	height: 100px;
+	width: 550px;
+	float: left;
+	min-height: fit-content;
+}
+
+#coinjar{
+	position: relative;
+	height: 70px;
+	width: 100%;
+	min-height: fit-content;
+	height: 120px;
+	text-align: center;
+	outline: 1px solid blue;
+}
+
+#montitle{
+	position: relative;
+	height: 30px;
+	width: 100%;
+	text-align: center;
+	outline: 1px solid green;
+}
+
+#shipbox{
+	height: 300px;
+    width: 500px;
+	float: left;
+    outline: 1px solid red;
+    position: relative;
+    bottom: 4%;
+}
+
+
+
+#shipcontainer{
+	position: absolute;
+    height: 240px;
+    width: 300px;
+    margin-top: calc(33% - 120px);
+    margin-left: 1.5em;
+    transform-origin: 50% 50%;
+}
+#shipcontainer .ship {
+	position: relative;
+    float: left;
+    transform-origin: 50% 50%;
+    margin-left: 0;
+    margin-top: 0;
+	margin: 10px;
+}
+
+#rotateships{
+	height: 80px;
+	width: 80px;
+	position: absolute;
+	bottom: 1em;
+	right: 1em;
+	background: turquoise;
+	box-shadow: 1px 1px 1px black;
+}
+
+#rotateshipsinner{
+	height: 100%;
+    width: 100%;
+    position: relative;
+    /* outline: 1px solid white; */
+    background: url(infarrows.png);
+    background-size: 100%;
+    background-repeat: no-repeat;
+    background-position: 10%;
+}
+
+.wrapmusic {
+	float:left;
+	padding-left: 10px;
+}
+
+.wrapmusic .label {
+	float: left;
+	width: 100%;
+	text-align: center;
+	font-size: 20px;
+	font-weight: 700;
+	text-transform: capitalize;
+	text-decoration: underline;
+	margin-top: 20px;	
+}
+.wrapmusic.enemy .label{
+	color: red;
+}
+
+.wrapmusic .wrapper {
+	width: 330px;
+	clear: both;
+	float: left;
+	margin: 10px;
+}
+
+.wrapmusic .wrapper .jayz {
+	position: relative;
+	width:30px;
+	height:30px;
+	float: left;
+	background-color: blue;
+	border: 1px solid blue;
+}
+.wrapmusic .wrapper .jayz:hover {
+	border-top: 1px solid green;
+	border-bottom: 1px solid green;
+	border-left: 1px solid green;
+	border-right: 1px solid green;
+}
+.wrapmusic .wrapper .jayz.black {
+	background-color: black;
+}
+
+.wrapmusic .wrapper .jayz.red {
+	background-color: red;
+}
+
+.wrapmusic .wrapper .jayz.redboarder { /* EYES */
+	border: 1px solid red;
+}
+
+.wrapmusic .wrapper .jayz.yellowboarder { /*its here bitch*/
+	border: 1px solid yellow;
+}
+
+.wrapmusic .wrapper .jayz.coord {
+	background-color: white;
+	text-align: center;
+	border-top: 1px solid black;
+	border-bottom: 1px solid black;
+	border-left: 1px solid black;
+	border-right: 1px solid black;
+	line-height: 30px;
+}
+
+.container {
+	position: absolute;
+	height: 32px;
+	width: 32px;
+	background-color: transparent;
+	border-radius: 50%;
+	/* margin: 10px; */
+	/*float: left;*/
+}
+.container.coin{
+	height: 23px;
+	width: 22px;
+	position: relative;
+	float: left;
+}
+.container.rotater{
+	margin-top: 30%;
+	margin-left: 28%;
+}
+/* .coins{
+	height: 223px;
+	width: 146px;
+	background: url(./coinsprite.png);
+	background-position: 25.8% 10%;
+	background-size: inherit;
+	transform: scale(0.1);
+	transform-origin: top left;
+} */
+.coins {
+	height: 164px;
+	width: 147px;
+	background: url(./coinsprite.png);
+	background-position: 50.8% 32%;
+	background-size: 100%;
+	transform: scale(0.2);
+	transform-origin: top left;
+}
+
+.container .modelThreeBase {
+	position: absolute;
+    height: 30px;
+    width: 30px;
+    background-color: grey;
+    border-radius: 15px;
+    /* margin-left: 15px; */
+    margin-top: 3px;
+}.container .modelThreeGun {
+	position: absolute;
+	height: 10px;
+	width: 19px;
+	background-color: #ffffff;
+	margin-top: 13px;
+}
+
+
+.ocean{
+	position: relative;
+	width: 360px;
+	height: 360px;
+	background: #5bb1d0;
+}
+.ship { /*assume horizontal default*/
+	position: absolute;
+	height: 40px;
+	/* width: 160px; */
+	margin-left: 80px;
+	background: black;
+	border-radius: 50%;
+}
+
+.vertical{
+	transform: rotate(90deg);
+	transform-origin: 50% 50%;
+}
+.rev{
+	transform: rotate(180deg);
+	transform-origin: 50% 50%;
+}
+.vertical.rev{
+	transform: rotate(270deg);
+	transform-origin: 50% 50%;
+}
+.ship.vertical    { transform-origin: 20px 50%; }
+.ship.rev         { transform-origin: 20px 50%; }
+.ship.vertical.rev{ transform-origin: 20px 50%; }
+
+.hitbox{
+	position: absolute;
+	width: 40px;
+	height: 40px;
+	/* border: 1px solid red; */
+	z-index: 3;
+	text-align: center;
+}.hitbox.yellow{
+	/* border: 1px solid yellow; */
+    
+}
+.lastthree{
+	position: absolute;
+	width: 40px;
+	height: 40px;
+	/* border: 1px solid red; */
+	z-index: 3;
+}
+.lastthree div{
+	position: absolute;
+	top: calc(35% - 5px);
+	left: calc(35% - 5px);
+	border: 5px solid #1f6086;
+	border-radius: 50%;
+	height: 30%;
+	width: 30%;
+}
+.exes{
+	
+	color: red;
+	font-size: 1.5em;
+	margin-top: calc(50% - 0.5em);
+}
+#greenbox{
+	position: absolute;
+	width: 40px;
+	height: 40px;
+	border: 1px solid green;
+	z-index: 3;
+}
+
+#cmd {
+	position: relative;
+    float: left;
+    width: 740px;
+	border: 1px solid black;
+}
+
+.infodiv{
+	padding-left: 10px;
+}
+
