@@ -16,30 +16,18 @@
 		$sessionid  = substr($usercookie, 0, 6);
 		$usercookie2 = substr($usercookie, 6, strlen($usercookie));
 		$handle = getConnection();
-		/* $smt = $handle->prepare("SELECT * from sessions WHERE sessionid=?");
-		checkHandle($smt);
-		$smt->execute([$sessionid]);
-		$results = $smt->fetchAll(); */
 		$results = bqry("SELECT * from sessions WHERE sessionid=?", [$sessionid]);
 		$result  = $results[0];
 		if($result['token']!==hash("sha512", $result['tokensalt'].$usercookie2)){
 			die('THIS IS NOT YOUR SESSION');
 		}else{
 			$player_id = intval($result['userid']);
-			/* $smt = $handle->prepare("SELECT * FROM games WHERE game_id=?");
-			checkHandle($smt);
-			$smt->execute([$game_id]);
-			$results = $smt->fetchAll(); */
 			$results = bqry("SELECT * FROM games WHERE game_id=?", [$game_id]);
 			$result = $results[0];
 			$enemy_id = intval($result['userid_A'])===$player_id?intval($result['userid_B']):intval($result['userid_A']);
 		}
 	}	
 	
-	/* $smt = $handle->prepare("SELECT * FROM users WHERE userid=?");
-	checkHandle($smt);
-	$smt->execute([$player_id]);
-	$results = $smt->fetchAll(); */
 	$results = bqry("SELECT * FROM users WHERE userid=?", [$player_id]);
 	
 	$results = bqry("SELECT * FROM users WHERE userid=?", [$player_id]);
@@ -48,10 +36,6 @@
 	echo '<h2> Signed in as : '.$name.'</h2>';
 	//echo $player_id, json_encode(is_bool($enemy_id));
 	if(!isset($enemy_id)){
-		/* $smt = $handle->prepare("SELECT * FROM games WHERE game_id=?");
-		checkHandle($smt);
-		$smt->execute([$game_id]);
-		$results = $smt->fetchAll(); */
 		$results = bqry("SELECT * FROM games WHERE game_id=?", [$game_id]);
 		$result = $results[0];
 		$enemy_id = intval($result['userid_A'])===$player_id?intval($result['userid_B']):intval($result['userid_A']);
@@ -136,21 +120,11 @@
 		$y = $_POST['hity'];
 		if(whos_turn($_POST['game_id'])[0]!=$player_id){ die("It's not your turn."); }
 		if(intval(hits_left($_POST['game_id'])[0])===0){ die("You have no hits available. Buy ships to get hits."); }
-		/* $handle = getConnection();
-		$smt = $handle->prepare('INSERT INTO hits (game_id,player_id,x,y) VALUES (?,?,?,?)');
-		checkHandle($smt);
-		$smt->execute(array($_POST['game_id'], $enemy_id, $x, $y)); */
 		bexec('INSERT INTO hits (game_id,player_id,x,y) VALUES (?,?,?,?)', [$_POST['game_id'], $enemy_id, $x, $y]);
 		
 		// ADD HISTORY:
 		$hit_id = $handle->lastInsertId();
 		log_action($_POST['game_id'], 2, $hit_id);
-
-		// get hits left for this player
-		/* $hits = $handle->prepare("SELECT * FROM turn WHERE game_id=?");
-		checkHandle($hits);
-		$hits->execute([$_POST['game_id']]);
-		$info=$hits->fetchAll(); */
 		$results = bqry("SELECT * FROM turn WHERE game_id=?", [$_POST['game_id']]);
 		$result=$results[0];
 		if($result['hits_left'] <= 1){
@@ -164,12 +138,7 @@
 				)
 			);
 		}else{
-			// reduce the turn number for current player
-			//$player_id = $enemy_id==2?1:2;
 			$decrement=$result['hits_left']-1;
-			/* $decqry = $handle->prepare("UPDATE turn SET hits_left=".$decrement." WHERE game_id=? AND player_id=?");
-			checkHandle($decqry);
-			$decqry->execute([$_POST['game_id'], $player_id]); */
 			bexec("UPDATE turn SET hits_left=".$decrement." WHERE game_id=? AND player_id=?", [$_POST['game_id'], $player_id]);
 		}
 	}
@@ -186,10 +155,6 @@
 		$new_ship = [$x, $y, $len, $horiz];
 
 		$handle = getConnection();
-		/* $qry = $handle->prepare("SELECT * FROM shiptype WHERE length=?");
-		checkHandle($qry);
-		$qry->execute([$len]);
-		$results = $qry->fetchAll(); */
 		$results = bqry("SELECT * FROM shiptype WHERE length=?", [$len]);
 		$ship = $results[0];
 		if((int)$x<0||(int)$x>8||(int)$y<0||(int)$y>8
@@ -203,10 +168,6 @@
 		$shipcoords = xyForm($_POST, true);
 		// CHECK USER HAS ENOUGH MONEY:
 		$handle = getConnection();
-		/* $moneyqry = $handle->prepare("SELECT money FROM money WHERE game_id=? AND player_id=?");
-		checkHandle($moneyqry);
-		$moneyqry->execute([$game_id, $player_id]);
-		$results = $moneyqry->fetchAll(); */
 		$results = bqry("SELECT money FROM money WHERE game_id=? AND player_id=?", [$game_id, $player_id]);
 		$money= $results[0]['money'];
 		if((int)$money < $ship['cost']){die('You do not have enough money to do that!');}
@@ -228,12 +189,6 @@
 			checkHandle($delhit);
 			$delhit->execute();
 			$delhit->closeCursor();
-			
-			// UPDATE AMOUNT OF HITS AVAILABLE TO PLAYER:
-			/* $hitsmt = $handle->prepare("SELECT * FROM hits WHERE game_id=? AND player_id=? ORDER BY id DESC");
-			checkHandle($hitsmt);
-			$hitsmt->execute([$game_id, $player_id]);
-			$hitresults = $hitsmt->fetchAll(); */
 			$hitresults = bqry("SELECT * FROM hits WHERE game_id=? AND player_id=? ORDER BY id DESC", [$game_id, $player_id]);
 			$last_hit_id = isset($hitresults[0]['id'])?$hitresults[0]['id']:0;
 			
@@ -246,14 +201,9 @@
 				if($hitsavailable===0){ break; }
 				if(is_int(array_search($t, $hitnorm))){ $hitsavailable--; }
 			}
-			//update_turn((int)$game_id, $player_id===1?2:1, $hitsavailable);
-			/* echo('wahhhhhh: '.$player_id); */
 			//update_turn((int)$game_id, $player_id, $hitsavailable);
 			// ADD THE NEW SHIP:
 			$inputs = [$game_id, $player_id, $x, $y, $len, $horiz, $last_hit_id, 0];
-			/* $smt = $handle->prepare('INSERT INTO ships (game_id,player_id,x,y,size,orientation,last_hit_id, sunk_bool) VALUES (?,?,?,?,?,?,?,?)');
-			checkHandle($smt);
-			$smt->execute($inputs); */
 			bexec('INSERT INTO ships (game_id,player_id,x,y,size,orientation,last_hit_id, sunk_bool) VALUES (?,?,?,?,?,?,?,?)', $inputs);
 
 			//ADD HISTORY:
@@ -261,9 +211,6 @@
 			log_action($game_id, 1, $ship_id);
 			// UPDATE PLAYER'S MONEY:
 			$nowmoney=$money-$ship['cost'];
-			/* $updatemoney=$handle->prepare("UPDATE money SET money=".$nowmoney." WHERE game_id=? AND player_id=?");
-			checkHandle($updatemoney);
-			$updatemoney->execute([$game_id, $player_id]); */
 			bexec("UPDATE money SET money=".$nowmoney." WHERE game_id=? AND player_id=?", [$game_id, $player_id]);
 		}
 

@@ -6,9 +6,6 @@
 		$player_id = intval($arr[0]);
 		$game_id = intval($arr[1]);
 		$handle = getConnection();
-		/* $smt = $handle->prepare("SELECT * FROM games WHERE game_id=?");
-		checkHandle($smt);
-		$smt->execute([$game_id]); */
 		$results = bqry("SELECT * FROM games WHERE game_id=?", [$game_id]);// $smt->fetchAll();
 		$result = $results[0];
 		$enemy_id = intval($result['userid_A'])===$player_id?intval($result['userid_B']):intval($result['userid_A']);
@@ -23,6 +20,5 @@
 	
 	<body>
 		<div><a href="http://localhost/battleships/index.php">Return to Dashboard</a></div>
-		<?php //if(!isset($player_id)) die(); ?>
 	</body>
 </html>
