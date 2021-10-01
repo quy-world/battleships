@@ -1,4 +1,49 @@
 <?php
+
+	function connectDB(){
+		return (new PDO("mysql:host=localhost:3306;dbname=battleships", "root", ""));
+	}
+	function getConnection(){
+		global $dbconnection;
+		if($dbconnection === null){
+			$dbconnection = connectDB();
+		}
+		return $dbconnection;
+	}
+	
+	function bexec($statementstring, $data){
+		$handle = getConnection();
+		$smt = $handle->prepare($statementstring);
+		checkHandle($smt);
+		$smt->execute($data);
+	}
+	function bqry($querystring, $data, $resulttype=null){
+		$handle = getConnection();
+		$smt = $handle->prepare($querystring);
+		checkHandle($smt);
+		$smt->execute($data);
+		$results = $smt->fetchAll($resulttype);
+		return $results;
+	}
+	
+	function checkHandle($smt){
+		if (!$smt) {
+			$handle = getConnection();
+			echo "\nPDO::errorInfo():\n";
+			print_r($handle->errorInfo());
+		}
+	}
+
+	function randstr($n){
+		$str = '';
+		//$searchme = array_merge(range(48, 122), 
+		for($i=0; $i<$n; $i++){
+			$str .= chr(rand(48, 122));
+		}
+		return $str;
+	}
+	
+
 	function arraymerge(...$arrays) {
 		$merged = [];
 		foreach($arrays as $array){

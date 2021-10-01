@@ -11,12 +11,12 @@ body{
 }
 
 #coincontainer{
-	border: 1px solid red;
 	position: relative;
-	height: 100px;
-	width: 550px;
-	float: left;
-	min-height: fit-content;
+    height: 100px;
+    text-decoration: underline;
+    width: 744px;
+    float: left;
+    min-height: fit-content;
 }
 
 #coinjar{
@@ -26,7 +26,7 @@ body{
 	min-height: fit-content;
 	height: 120px;
 	text-align: center;
-	outline: 1px solid blue;
+	/* outline: 1px solid blue; */
 }
 
 #montitle{
@@ -34,16 +34,17 @@ body{
 	height: 30px;
 	width: 100%;
 	text-align: center;
-	outline: 1px solid green;
+	/* outline: 1px solid green; */
 }
 
 #shipbox{
 	height: 300px;
-    width: 500px;
+    width: 755px;
 	float: left;
-    outline: 1px solid red;
+    /* outline: 1px solid red; */
     position: relative;
     bottom: 4%;
+	margin-left: -20px;
 }
 
 
@@ -52,7 +53,7 @@ body{
 	position: absolute;
     height: 240px;
     width: 300px;
-    margin-top: calc(33% - 120px);
+    margin-top: calc(22% - 120px);
     margin-left: 1.5em;
     transform-origin: 50% 50%;
 }
@@ -283,7 +284,7 @@ body{
 	position: relative;
     float: left;
     width: 740px;
-	border: 1px solid black;
+	/* border: 1px solid black; */
 }
 
 .infodiv{

@@ -1,36 +1,28 @@
 <?php	
-	$PDO_ARGS = ["mysql:host=localhost:3306;dbname=battleships", "root", ""];
-
-	if(isset($_REQUEST['game_id'])) {
-		$player_id;
-		$game_id = $_REQUEST['game_id'];
-		$password = $_REQUEST['password'];
+	include("./util.php");
 		
-		$handle = new PDO($PDO_ARGS[0], $PDO_ARGS[1], $PDO_ARGS[2]);
-		$smt = $handle->prepare("SELECT * FROM games WHERE game_id=?");
-		$smt->execute([$game_id]);
-		$result = $smt->fetchAll();
-		$info = $result[0]; // there should only be one unique result
-		
-		if($password==$info['pw_A']) {
-			echo('Welcome Player A');
-			$player_id = 1;
-		} else {
-			if($password==$info['pw_B']) {
-				echo('Welcome Player B');
-				$player_id = 2;
-			} else {
-				echo('Wrong Credentials');
-			}
-		}
-		if(isset($player_id)) $enemy_id = $player_id==1 ? 2:1;
+	if(isset($_POST['playgame'])) {
+		$arr = explode(',', $_POST['playgame']);
+		$player_id = intval($arr[0]);
+		$game_id = intval($arr[1]);
+		$handle = getConnection();
+		/* $smt = $handle->prepare("SELECT * FROM games WHERE game_id=?");
+		checkHandle($smt);
+		$smt->execute([$game_id]); */
+		$results = bqry("SELECT * FROM games WHERE game_id=?", [$game_id]);// $smt->fetchAll();
+		$result = $results[0];
+		$enemy_id = intval($result['userid_A'])===$player_id?intval($result['userid_B']):intval($result['userid_A']);
 	}
-
+	if(isset($_COOKIE['battleshipcookie'])){
+		$moisession = $_COOKIE['battleshipcookie'];
+	}else{
+		die('session no longer');
+	}
 ?><html>
 	<head></head>
 	
 	<body>
 		<div><a href="http://localhost/battleships/index.php">Return to Dashboard</a></div>
-		<?php if(!isset($player_id)) die(); ?>
+		<?php //if(!isset($player_id)) die(); ?>
 	</body>
 </html>

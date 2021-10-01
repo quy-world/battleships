@@ -1,39 +1,9 @@
 <?php
 	include('./ships.php');
 
-$PDO_ARGS = ["mysql:host=localhost:3306;dbname=battleships", "root", ""];
-// put PDO handle into a functiuon into a difeertnt fuileabove htdocs and include
-function connectDB(){
-	return (new PDO("mysql:host=localhost:3306;dbname=battleships", "root", "");)
-}
-function getHitsFromDb($gameid, $playerid) { 
-	// int -> int -> [[int, int]]
-	global $PDO_ARGS;
-	$lasthit = lastHitId($gameid, $playerid);
-	$handle = new PDO($PDO_ARGS[0], $PDO_ARGS[1], $PDO_ARGS[2]);
-	$smt = $handle->prepare("SELECT x, y FROM hits WHERE game_id=? AND player_id=? AND id>? ORDER BY id DESC");
-	$smt->execute(array($gameid, $playerid, $lasthit));
-	$results = $smt->fetchAll();
-	$hits = array();
-	foreach($results as $array){
-		$hits[] = array((int)$array['x'], (int)$array['y']);
-	}
-	return $hits;
-}
-
-function lastHitId($game_id, $player_id){
-	// int -> int -> int
-	global $PDO_ARGS;
-	$handle = new PDO($PDO_ARGS[0], $PDO_ARGS[1], $PDO_ARGS[2]);
-	$smt = $handle->prepare("SELECT last_hit_id FROM ships WHERE game_id=? AND player_id=? AND sunk_bool=0 ORDER BY id");
-	$smt->execute(array($game_id, $player_id));
-	$results = $smt->fetchAll();
-	return $results[0]['last_hit_id'];
-}
-
+/*** Ships ***/
 function sqlintcols($results, $cols){
 	// [{str:str}] -> [str] -> [{str:str|int}]
-	global $PDO_ARGS;
 	foreach($results as $k => $r){
 		foreach($cols as $c){
 			$results[$k][$c] = intval($r[$c]);
@@ -43,16 +13,18 @@ function sqlintcols($results, $cols){
 }
 function getShipsPure(){
 	// null -> [{(str):(str|int|[int])}]
-	global $PDO_ARGS;
-	$handle = new PDO($PDO_ARGS[0], $PDO_ARGS[1], $PDO_ARGS[2]);
+	$handle = getConnection();
 	$smt = $handle->prepare('SELECT name, length, cost FROM shiptype ORDER BY shiptype_id ASC');
+	checkHandle($smt);
 	$smt->execute();
 	$obj = $smt->fetchAll(PDO::FETCH_ASSOC);
 	foreach($obj as $x){ $x['offsets'] = []; }
 	$obj = sqlintcols($obj, ["length", "cost"]);
-	$smt2 = $handle->prepare('SELECT * FROM turretlocations');
+	/* $smt2 = $handle->prepare('SELECT * FROM turretlocations');
+	checkHandle($smt2);
 	$smt2->execute();
-	$typeres2 = $smt2->fetchAll();
+	$typeres2 = $smt2->fetchAll(); */
+	$typeres2 = bqry('SELECT * FROM turretlocations', []);
 	foreach($typeres2 as $t){
 		$obj[$t['shiptype_id']]['offsets'][] = intval($t['offset']);
 	}
@@ -61,11 +33,12 @@ function getShipsPure(){
 
 function get_ships_from_db($gameid, $playerid, $moreInfo=false) {
 	// int -> int -> bool -> [strs]|[strs|bool]
-	global $PDO_ARGS;
-	$handle = new PDO($PDO_ARGS[0], $PDO_ARGS[1], $PDO_ARGS[2]);
+	/* $handle = getConnection();
 	$smt = $handle->prepare("SELECT * FROM ships WHERE game_id=? AND player_id=? ORDER BY id");
+	checkHandle($smt);
 	$smt->execute(array($gameid, $playerid));
-	$result = $smt->fetchAll();
+	$result = $smt->fetchAll(); */
+	$result = bqry("SELECT * FROM ships WHERE game_id=? AND player_id=? ORDER BY id", [$gameid, $playerid]);
 	$shipdetails = array();
 	foreach($result as $array) {
 		$orientation = $array['orientation'];
@@ -80,20 +53,8 @@ function get_ships_from_db($gameid, $playerid, $moreInfo=false) {
 	return $shipdetails;
 }
 
-function get_money_from_db($gameid, $playerid) {
-	// int -> int -> int
-	global $PDO_ARGS;
-	$handle = new PDO($PDO_ARGS[0], $PDO_ARGS[1], $PDO_ARGS[2]);
-	$smt = $handle->prepare("SELECT game_id, player_id, money FROM money WHERE game_id=? AND player_id=?");
-	$smt->execute(array($gameid, $playerid));
-	$result = $smt->fetchAll();
-	$money_amt=$result[0]['money'];
-	return $money_amt;
-}
-
 function shipsarray($get_ships_from_db) {
 	// [strs]|[strs|bool] -> [ [[int, int]] ]
-	global $PDO_ARGS;
 	$ships = $get_ships_from_db;
 	$coord_array = [];
 	foreach($ships as $ship) {
@@ -107,9 +68,31 @@ function shipsarray($get_ships_from_db) {
 	return $coord_array;
 }
 
+function xyForm($ship, $diff=false){
+	// "int"  -> bool -> [ [int, int] ]
+	if(count($ship)===0){ return []; }
+	// make x, y, len ints because db returns strs
+	if($diff){
+		$x=intval($ship['x']); $y=intval($ship['y']);
+		$len=intval($ship['length']); 
+		$horiz= $ship['orientation']==="0"||$ship['orientation']==="2";
+	}else{
+		$x=intval($ship[0]); $y=intval($ship[1]);
+		$len=$ship[2]; 
+		$horiz= $ship[3]==="0"||$ship[3]==="2";
+
+	}
+	$xys=[];
+	for($i=0;$i<$len;$i++){
+		$modx =  $horiz ? $x+$i : $x;
+		$mody = !$horiz ? $y+$i : $y;
+		$xys[]= [(int)$modx, (int)$mody];
+	}
+	return $xys;
+}
+
 function nameships($shiphitbool) {
 	// [bool|str] -> [bool|str] 	
-	global $PDO_ARGS;
 	$alphabet=['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
 	$i=0;
 	$namedships=[];
@@ -117,9 +100,8 @@ function nameships($shiphitbool) {
 	return $namedships;
 }
 
-function managefleet($game_id, $password, $fleethealth) {
+function managefleet($game_id, $moisession, $fleethealth) {
 	// int -> str -> [bool|str] -> HTMLString
-	global $PDO_ARGS;
 	$ret = '<div id=cmd>';
 	$ret .= '<ul>';
 	foreach($fleethealth as $ship){
@@ -141,7 +123,7 @@ function managefleet($game_id, $password, $fleethealth) {
 	$ret .= ('</ul></div>');
 	
 	// options to add new ships at what coordinates
-	/* $handle = new PDO($PDO_ARGS[0], $PDO_ARGS[1], $PDO_ARGS[2]);
+	/* $handle = getConnection();
 	$qry = $handle->prepare("SELECT name, length, cost FROM shiptype ORDER BY length");
 	$qry->execute();
 	$results = $qry->fetchAll();
@@ -166,7 +148,7 @@ function managefleet($game_id, $password, $fleethealth) {
 			<option value="0">Vertical</option>
 		</select>
 		<input type="hidden" name="game_id" value='.$game_id.'>
-		<input type="hidden" name="password" value='.$password.'>
+		<input type="hidden" name="moisession" value='.$moisession.'>
 		<button>Add</button>
 	</form>
 	'); 
@@ -175,6 +157,61 @@ function managefleet($game_id, $password, $fleethealth) {
 	return $ret;
 }
 
+
+/*** Hits ***/
+function getHitsFromDb($gameid, $playerid) { 
+	// int -> int -> [[int, int]]
+	$lasthit = lastHitId($gameid, $playerid);
+	$handle = getConnection();
+	/* $smt = $handle->prepare("SELECT x, y FROM hits WHERE game_id=? AND player_id=? AND id>? ORDER BY id DESC");
+	checkHandle($smt);
+	$smt->execute(array($gameid, $playerid, $lasthit));
+	$results = $smt->fetchAll(); */
+	$results = bqry("SELECT x, y FROM hits WHERE game_id=? AND player_id=? AND id>? ORDER BY id DESC", [$gameid, $playerid, $lasthit]);
+	$hits = array();
+	foreach($results as $array){
+		$hits[] = array((int)$array['x'], (int)$array['y']);
+	}
+	return $hits;
+}
+
+function lastHitId($game_id, $player_id){
+	// int -> int -> int
+	/* $handle = getConnection();
+	$smt = $handle->prepare("SELECT last_hit_id FROM ships WHERE game_id=? AND player_id=? AND sunk_bool=0 ORDER BY id");
+	checkHandle($smt);
+	$smt->execute(array($game_id, $player_id));
+	$results = $smt->fetchAll(); */
+	$results = bqry("SELECT last_hit_id FROM ships WHERE game_id=? AND player_id=? AND sunk_bool=0 ORDER BY id", [$game_id, $player_id]);
+		//varjson($results[0]);
+	if(count($results)===0){
+		return 0;
+	}
+	return $results[0]['last_hit_id'];
+}
+
+function last_three($game_id, $player_id) {
+	// int -> int -> [{key:"int"}]
+	/* $handle = getConnection();
+	$lastthreeqry = $handle->prepare("SELECT * FROM hits WHERE game_id=? AND player_id=? ORDER BY id DESC LIMIT 3");
+	checkHandle($lastthreeqry);
+	$lastthreeqry->execute([$game_id, $player_id]);
+	$results = $lastthreeqry->fetchAll(); */
+	return bqry("SELECT * FROM hits WHERE game_id=? AND player_id=? ORDER BY id DESC LIMIT 3", [$game_id, $player_id]);
+}
+
+function hits_left($game_id) {
+	// int -> int 
+	/* $handle = getConnection();
+	$hits = $handle->prepare("SELECT * FROM turn WHERE game_id=?");
+	checkHandle($hits);
+	$hits->execute([$game_id]);
+	$results = $hits->fetchAll(); */
+	$results = bqry("SELECT * FROM turn WHERE game_id=?", [$game_id]);
+	return $results[0]['hits_left'];
+}
+
+/*** Ships + Hits ***/
 function shiphitbool($shipsarray, $hitsarray) {
 	// [ [[int, int]] ] -> [ [int, int] ] -> [ [bool|str] ]
 	$hitships = [];
@@ -188,11 +225,21 @@ function shiphitbool($shipsarray, $hitsarray) {
 	return $hitships;
 }
 
+function valid_placement($last_three, $ship){
+	// [{key:"int"}] -> bool
+	foreach($last_three as $hit){
+		$hitship = [$hit['x'], $hit['y'], 1, true];
+		if(colliding_ships([$hitship, $ship])===true){
+			return false;
+		}
+	}
+	return true;
+}
+
 function possible_hits($shipsarray, $hitsarray) {
-	
 	$can_attack = 0;
 	foreach($shipsarray as $ship){
-		$turretlocations = getTurrets(count($ship)); // NOTE: based on length
+		$turretlocations = getTurrets(count($ship));
 		$turretarray = [];
 		foreach($turretlocations as $turret){
 			$turretarray[] = $ship[(int)$turret['offset']];
@@ -203,29 +250,36 @@ function possible_hits($shipsarray, $hitsarray) {
 	}
 	return $can_attack;
 }
+
+
+
 /*** Turrets ***/
 function getTurrets($shiplength) {
 	// int -> [{str:str}]
 	// returns a list of turret positions for a particular ship length
-	global $PDO_ARGS;
-	$handle = new PDO($PDO_ARGS[0], $PDO_ARGS[1], $PDO_ARGS[2]);
+	/* $handle = getConnection();
 	$qryship = $handle->prepare("SELECT shiptype_id from shiptype WHERE length=?");
+	checkHandle($qryship);
 	$qryship->execute([$shiplength]);
-	$qryshipresults = $qryship->fetchAll();
+	$qryshipresults = $qryship->fetchAll(); */
+	$qryshipresults = bqry("SELECT shiptype_id from shiptype WHERE length=?", [$shiplength]);
 	$shiptype_id = $qryshipresults[0]['shiptype_id'];
-	$qryturrets = $handle->prepare("SELECT offset from turretlocations WHERE shiptype_id=?");
+	/* $qryturrets = $handle->prepare("SELECT offset from turretlocations WHERE shiptype_id=?");
+	checkHandle($qryturrets);
 	$qryturrets->execute([$shiptype_id]);
-	$turretresults = $qryturrets->fetchAll();
+	$turretresults = $qryturrets->fetchAll(); */
+	$turretresults = bqry("SELECT offset from turretlocations WHERE shiptype_id=?", [$shiptype_id]);
 	return $turretresults;
 }
 
 function turretCoords($game_id, $player_id){
 	// int -> int -> [ [int, int] ]
-	global $PDO_ARGS;
-	$handle = new PDO($PDO_ARGS[0], $PDO_ARGS[1], $PDO_ARGS[2]);
+	/* $handle = getConnection();
 	$smt = $handle->prepare("SELECT x,y,size,orientation FROM ships WHERE game_id=? AND player_id=? AND sunk_bool=0");
+	checkHandle($smt);
 	$smt->execute(array($game_id, $player_id));
-	$results = $smt->fetchAll(); // array of ships
+	$results = $smt->fetchAll(); // array of ships */
+	$results = bqry("SELECT x,y,size,orientation FROM ships WHERE game_id=? AND player_id=? AND sunk_bool=0", [$game_id, $player_id]);
 	$coords = [];
 	foreach($results as $ship){
 		$x=$ship['x']; $y=$ship['y'];
@@ -238,88 +292,50 @@ function turretCoords($game_id, $player_id){
 	}
 	return $coords;
 }
-/*** Ships hits ***/
-function xyForm($ship, $diff=false){
-	// "int"  -> bool -> [ [int, int] ]
-	if(count($ship)===0){ return []; }
-	// make x, y, len ints becuase db returns as strs
-	if($diff){
-		$x=intval($ship['x']); $y=intval($ship['y']);
-		$len=intval($ship['length']); 
-		$horiz= $ship['orientation']==="0"||$ship['orientation']==="2";
-	}else{
-		$x=intval($ship[0]); $y=intval($ship[1]);
-		$len=$ship[2]; 
-		$horiz= $ship[3]==="0"||$ship[3]==="2";
 
-	}
-	$xys=[];
-	for($i=0;$i<$len;$i++){
-		$modx =  $horiz ? $x+$i : $x;
-		$mody = !$horiz ? $y+$i : $y;
-		$xys[]= [(int)$modx, (int)$mody];
-	}
-	return $xys;
-}
-
-function hits_left($game_id) {
-	// int -> int 
-	global $PDO_ARGS;
-	$handle = new PDO($PDO_ARGS[0], $PDO_ARGS[1], $PDO_ARGS[2]);
-	$hits = $handle->prepare("SELECT * FROM turn WHERE game_id=?");
-	$hits->execute([$game_id]);
-	$results = $hits->fetchAll();
-	return $results[0]['hits_left'];
+/*** Turns and Money ***/
+function get_money_from_db($gameid, $playerid) {
+	// int -> int -> int
+	/* $handle = getConnection();
+	$smt = $handle->prepare("SELECT game_id, player_id, money FROM money WHERE game_id=? AND player_id=?");
+	checkHandle($smt);
+	$smt->execute(array($gameid, $playerid));
+	$result = $smt->fetchAll(); */
+	$result = bqry("SELECT game_id, player_id, money FROM money WHERE game_id=? AND player_id=?", [$gameid, $playerid]);
+	$money_amt=$result[0]['money'];
+	return $money_amt;
 }
 
 function whos_turn($game_id) {
 	// int -> [int, int]
-	global $PDO_ARGS;
-	$handle = new PDO($PDO_ARGS[0], $PDO_ARGS[1], $PDO_ARGS[2]);
+	/* $handle = getConnection();
 	$turn = $handle->prepare("SELECT * FROM turn WHERE game_id=?");
+	checkHandle($turn);
 	$turn->execute([$game_id]);
-	$info = $turn->fetchAll();
+	$info = $turn->fetchAll(); */
+	$info = bqry("SELECT * FROM turn WHERE game_id=?", [$game_id]);
 	$results = $info[0];
 	return [$results['player_id'], $results['hits_left']];
 }
 
-function last_three($game_id, $player_id) {
-	// int -> int -> [{key:"int"}]
-	global $PDO_ARGS;
-	$handle = new PDO($PDO_ARGS[0], $PDO_ARGS[1], $PDO_ARGS[2]);
-	$lastthreeqry = $handle->prepare("SELECT * FROM hits WHERE game_id=? AND player_id=? ORDER BY id DESC LIMIT 3");
-	$lastthreeqry->execute([$game_id, $player_id]);
-	$results = $lastthreeqry->fetchAll();
-	varjson($results);
-	return $results;
-}
-
-function valid_placement($last_three, $ship){
-	// [{key:"int"}] -> bool
-	foreach($last_three as $hit){
-		$hitship = [$hit['x'], $hit['y'], 1, true];
-		if(colliding_ships([$hitship, $ship])===true){
-			return false;
-		}
-	}
-	return true;
-}
-
-function update_turn($game_id, $current_id, $qry_hits_left) { // procedure
+function update_turn($game_id, $current_id, $qry_hits_left) {
 	// int -> int -> int -> null
-	global $PDO_ARGS;
-	$next_id = $current_id==2?1:2;
-	$handle = new PDO($PDO_ARGS[0], $PDO_ARGS[1], $PDO_ARGS[2]);
+	/* global $enemy_id;
+	$next_id = $current; */
+	/* $handle = getConnection();
 	$turn = $handle->prepare("UPDATE turn SET player_id=".$next_id.", hits_left=".$qry_hits_left." WHERE game_id=?");
-	$turn->execute([$game_id]);
+	checkHandle($turn);
+	$turn->execute([$game_id]); */
+	bexec("UPDATE turn SET player_id=".$current_id.", hits_left=".$qry_hits_left." WHERE game_id=?", [$game_id]);
 }
 
-function log_action($game_id, $action_type, $action_id) { // procedure
-	// int -> int -> int
-	global $PDO_ARGS;
-	$handle = new PDO($PDO_ARGS[0], $PDO_ARGS[1], $PDO_ARGS[2]);
+function log_action($game_id, $action_type, $action_id) {
+	// int -> int -> int -> null
+	/* $handle = getConnection();
 	$logdata = $handle->prepare("INSERT INTO history (game_id, action_type, action_id) VALUES (?,?,?)");
-	$logdata->execute([$game_id, $action_type, $action_id]);
+	checkHandle($logdata);
+	$logdata->execute([$game_id, $action_type, $action_id]); */
+	bexec("INSERT INTO history (game_id, action_type, action_id) VALUES (?,?,?)", [$game_id, $action_type, $action_id]);
 }
 
 ?>

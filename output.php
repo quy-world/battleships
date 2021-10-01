@@ -3,13 +3,67 @@
 	include('./battleshipgame.php');
 	include('./outputhelpers.php');
 	
+	if(isset($_POST['game_id'])){
+		$game_id = intval($_POST['game_id']);
+		$moisession = $_COOKIE['battleshipcookie'];
+	}
+	if(isset($_GET['game_id'])){
+		$game_id = intval($_GET['game_id']);
+		$moisession = $_COOKIE['battleshipcookie'];
+	}
+	if(!isset($player_id)){
+		$usercookie = $_COOKIE["battleshipcookie"];
+		$sessionid  = substr($usercookie, 0, 6);
+		$usercookie2 = substr($usercookie, 6, strlen($usercookie));
+		$handle = getConnection();
+		/* $smt = $handle->prepare("SELECT * from sessions WHERE sessionid=?");
+		checkHandle($smt);
+		$smt->execute([$sessionid]);
+		$results = $smt->fetchAll(); */
+		$results = bqry("SELECT * from sessions WHERE sessionid=?", [$sessionid]);
+		$result  = $results[0];
+		if($result['token']!==hash("sha512", $result['tokensalt'].$usercookie2)){
+			die('THIS IS NOT YOUR SESSION');
+		}else{
+			$player_id = intval($result['userid']);
+			/* $smt = $handle->prepare("SELECT * FROM games WHERE game_id=?");
+			checkHandle($smt);
+			$smt->execute([$game_id]);
+			$results = $smt->fetchAll(); */
+			$results = bqry("SELECT * FROM games WHERE game_id=?", [$game_id]);
+			$result = $results[0];
+			$enemy_id = intval($result['userid_A'])===$player_id?intval($result['userid_B']):intval($result['userid_A']);
+		}
+	}	
+	
+	/* $smt = $handle->prepare("SELECT * FROM users WHERE userid=?");
+	checkHandle($smt);
+	$smt->execute([$player_id]);
+	$results = $smt->fetchAll(); */
+	$results = bqry("SELECT * FROM users WHERE userid=?", [$player_id]);
+	
+	$results = bqry("SELECT * FROM users WHERE userid=?", [$player_id]);
+	
+	$name = $results[0]['username'];
+	echo '<h2> Signed in as : '.$name.'</h2>';
+	//echo $player_id, json_encode(is_bool($enemy_id));
+	if(!isset($enemy_id)){
+		/* $smt = $handle->prepare("SELECT * FROM games WHERE game_id=?");
+		checkHandle($smt);
+		$smt->execute([$game_id]);
+		$results = $smt->fetchAll(); */
+		$results = bqry("SELECT * FROM games WHERE game_id=?", [$game_id]);
+		$result = $results[0];
+		$enemy_id = intval($result['userid_A'])===$player_id?intval($result['userid_B']):intval($result['userid_A']);
+	}
+	
 	$pureships = getShipsPure();
 	function getshipdetails($shiptypeid=false){
 		global $pureships;
 		if($shiptypeid === false){ return $pureships; }
 		return $pureships[$shiptypeid];
 	}
-	//varjson(getshipdetails());
+	/*** Generate turrets and ship ***/
 	function createTurr($offset){
 		// int -> HTMLString
 		$turrstyle = cssstyles(
@@ -76,31 +130,34 @@
 		return $box;
 	}
 	/*** Adding hits to DB ***/
-	$other_player = $player_id==1?2:1;
-	if(isset($_GET['hitx'])&&isset($_GET['hity'])&&isset($_GET['game_id'])) { 
+	if(isset($_POST['hitx'])&&isset($_POST['hity'])&&isset($_POST['moisession'])) { 
 		// qPOST
-		$x = $_GET['hitx'];
-		$y = $_GET['hity'];
-		if(whos_turn($_GET['game_id'])[0]!=$player_id){ die("It's not your turn."); }
-		if(intval(hits_left($_GET['game_id'])[0])===0){ die("You have no hits available. Buy ships to get hits."); }
-		$handle = new PDO($PDO_ARGS[0], $PDO_ARGS[1], $PDO_ARGS[2]);
+		$x = $_POST['hitx'];
+		$y = $_POST['hity'];
+		if(whos_turn($_POST['game_id'])[0]!=$player_id){ die("It's not your turn."); }
+		if(intval(hits_left($_POST['game_id'])[0])===0){ die("You have no hits available. Buy ships to get hits."); }
+		/* $handle = getConnection();
 		$smt = $handle->prepare('INSERT INTO hits (game_id,player_id,x,y) VALUES (?,?,?,?)');
-		$smt->execute(array($_GET['game_id'], $enemy_id, $x, $y));
+		checkHandle($smt);
+		$smt->execute(array($_POST['game_id'], $enemy_id, $x, $y)); */
+		bexec('INSERT INTO hits (game_id,player_id,x,y) VALUES (?,?,?,?)', [$_POST['game_id'], $enemy_id, $x, $y]);
 		
 		// ADD HISTORY:
 		$hit_id = $handle->lastInsertId();
-		log_action($_GET['game_id'], 2, $hit_id);
+		log_action($_POST['game_id'], 2, $hit_id);
 
 		// get hits left for this player
-		$hits = $handle->prepare("SELECT * FROM turn WHERE game_id=?");
-		$hits->execute([$_GET['game_id']]);
-		$info=$hits->fetchAll();
-		$result=$info[0];
+		/* $hits = $handle->prepare("SELECT * FROM turn WHERE game_id=?");
+		checkHandle($hits);
+		$hits->execute([$_POST['game_id']]);
+		$info=$hits->fetchAll(); */
+		$results = bqry("SELECT * FROM turn WHERE game_id=?", [$_POST['game_id']]);
+		$result=$results[0];
 		if($result['hits_left'] <= 1){
 			// set turn to other player
 			update_turn(
-				$_GET['game_id'], 
-				$player_id, 
+				$_POST['game_id'], 
+				$enemy_id, 
 				possible_hits(
 					shipsarray(get_ships_from_db($game_id, $enemy_id)),
 					getHitsFromDb($game_id, $enemy_id)
@@ -108,16 +165,17 @@
 			);
 		}else{
 			// reduce the turn number for current player
-			$player_id = $enemy_id==2?1:2;
+			//$player_id = $enemy_id==2?1:2;
 			$decrement=$result['hits_left']-1;
-			$decqry = $handle->prepare("UPDATE turn SET hits_left=".$decrement." WHERE game_id=? AND player_id=?");
-			$decqry->execute([$_GET['game_id'], $player_id]);
+			/* $decqry = $handle->prepare("UPDATE turn SET hits_left=".$decrement." WHERE game_id=? AND player_id=?");
+			checkHandle($decqry);
+			$decqry->execute([$_POST['game_id'], $player_id]); */
+			bexec("UPDATE turn SET hits_left=".$decrement." WHERE game_id=? AND player_id=?", [$_POST['game_id'], $player_id]);
 		}
-		// qPOST
-		header('Location: '.'http://localhost/battleships/output.php?'.'game_id='.$game_id.'&password='.$password); 
 	}
 	
-	// handling new ships
+	
+	/*** Handling new ships ***/
 	if(isset($_POST['x'])){
 		// x and y are numbers for now
 		$x = $_POST['x']; $y = $_POST['y'];
@@ -127,10 +185,12 @@
 		$game_id = $_POST['game_id']; //$player_id = $_POST['player_id'];
 		$new_ship = [$x, $y, $len, $horiz];
 
-		$handle = new PDO($PDO_ARGS[0], $PDO_ARGS[1], $PDO_ARGS[2]);
-		$qry = $handle->prepare("SELECT * FROM shiptype WHERE length=?");
+		$handle = getConnection();
+		/* $qry = $handle->prepare("SELECT * FROM shiptype WHERE length=?");
+		checkHandle($qry);
 		$qry->execute([$len]);
-		$results = $qry->fetchAll();
+		$results = $qry->fetchAll(); */
+		$results = bqry("SELECT * FROM shiptype WHERE length=?", [$len]);
 		$ship = $results[0];
 		if((int)$x<0||(int)$x>8||(int)$y<0||(int)$y>8
 			||(($horiz===1) && (((int)$y+(int)$len)>9) )
@@ -141,19 +201,23 @@
 		if(!valid_placement(last_three($game_id, $player_id), $new_ship)){die('Cannot place ship in area of last 3 hits');}
 		
 		$shipcoords = xyForm($_POST, true);
-		// MONEY CHECK:
-		$handle = new PDO($PDO_ARGS[0], $PDO_ARGS[1], $PDO_ARGS[2]);
-		$moneyqry = $handle->prepare("SELECT money FROM money WHERE game_id=? AND player_id=?");
+		// CHECK USER HAS ENOUGH MONEY:
+		$handle = getConnection();
+		/* $moneyqry = $handle->prepare("SELECT money FROM money WHERE game_id=? AND player_id=?");
+		checkHandle($moneyqry);
 		$moneyqry->execute([$game_id, $player_id]);
-		$results = $moneyqry->fetchAll();
+		$results = $moneyqry->fetchAll(); */
+		$results = bqry("SELECT money FROM money WHERE game_id=? AND player_id=?", [$game_id, $player_id]);
 		$money= $results[0]['money'];
 		if((int)$money < $ship['cost']){die('You do not have enough money to do that!');}
-		// COLLISION CHECK:
+		// CHECK FOR COLLISIONS:
 		$list_of_ships = append(get_ships_from_db($game_id, $player_id), $new_ship);
 		if(colliding_ships($list_of_ships)===true){
 			die('Ships Collide. Try again.');
 		}else{ 
+			// APPEND TO DATABASE:
 			$delqstr_ = '';
+			// DELETE OLD HITS
 			foreach($shipcoords as $sc){
 				$ex = (int)$sc[0];
 				$wy = (int)$sc[1];
@@ -161,36 +225,46 @@
 			}
 			$delqstr = "START TRANSACTION;".$delqstr_."COMMIT;";
 			$delhit = $handle->prepare($delqstr);
+			checkHandle($delhit);
 			$delhit->execute();
 			$delhit->closeCursor();
-
-			$hitsmt = $handle->prepare("SELECT * FROM hits WHERE game_id=? AND player_id=? ORDER BY id DESC");
+			
+			// UPDATE AMOUNT OF HITS AVAILABLE TO PLAYER:
+			/* $hitsmt = $handle->prepare("SELECT * FROM hits WHERE game_id=? AND player_id=? ORDER BY id DESC");
+			checkHandle($hitsmt);
 			$hitsmt->execute([$game_id, $player_id]);
-			$hitresults = $hitsmt->fetchAll();
+			$hitresults = $hitsmt->fetchAll(); */
+			$hitresults = bqry("SELECT * FROM hits WHERE game_id=? AND player_id=? ORDER BY id DESC", [$game_id, $player_id]);
 			$last_hit_id = isset($hitresults[0]['id'])?$hitresults[0]['id']:0;
 			
 			$turrets = turretCoords($game_id, $player_id);
 			$tnum = [];
-			$hitnorm = array_map(function($x){ return [(int)$x['x'], (int)$x['y']];}, $hitresults);//;xyForm();
+			$hitnorm = array_map(function($x){ return [(int)$x['x'], (int)$x['y']];}, $hitresults);
 			$hitsavailable = count($turrets) + count(getTurrets((int)$_POST['length']));
 
 			foreach($turrets as $t){
 				if($hitsavailable===0){ break; }
 				if(is_int(array_search($t, $hitnorm))){ $hitsavailable--; }
 			}
-			update_turn((int)$game_id, $player_id===1?2:1, $hitsavailable);
-			
+			//update_turn((int)$game_id, $player_id===1?2:1, $hitsavailable);
+			/* echo('wahhhhhh: '.$player_id); */
+			//update_turn((int)$game_id, $player_id, $hitsavailable);
+			// ADD THE NEW SHIP:
 			$inputs = [$game_id, $player_id, $x, $y, $len, $horiz, $last_hit_id, 0];
-			$smt = $handle->prepare('INSERT INTO ships (game_id,player_id,x,y,size,orientation,last_hit_id, sunk_bool) VALUES (?,?,?,?,?,?,?,?)');
-			$smt->execute($inputs);
+			/* $smt = $handle->prepare('INSERT INTO ships (game_id,player_id,x,y,size,orientation,last_hit_id, sunk_bool) VALUES (?,?,?,?,?,?,?,?)');
+			checkHandle($smt);
+			$smt->execute($inputs); */
+			bexec('INSERT INTO ships (game_id,player_id,x,y,size,orientation,last_hit_id, sunk_bool) VALUES (?,?,?,?,?,?,?,?)', $inputs);
 
 			//ADD HISTORY:
 			$ship_id = $handle->lastInsertId();
 			log_action($game_id, 1, $ship_id);
-
+			// UPDATE PLAYER'S MONEY:
 			$nowmoney=$money-$ship['cost'];
-			$updatemoney=$handle->prepare("UPDATE money SET money=".$nowmoney." WHERE game_id=? AND player_id=?");
-			$updatemoney->execute([$game_id, $player_id]);
+			/* $updatemoney=$handle->prepare("UPDATE money SET money=".$nowmoney." WHERE game_id=? AND player_id=?");
+			checkHandle($updatemoney);
+			$updatemoney->execute([$game_id, $player_id]); */
+			bexec("UPDATE money SET money=".$nowmoney." WHERE game_id=? AND player_id=?", [$game_id, $player_id]);
 		}
 
 	}
@@ -201,7 +275,7 @@
 <link href="./css/all.min.css" rel="stylesheet">
 <script>
 	var game_id = <?php echo(json_encode($game_id));?>;
-	var password = <?php echo(json_encode($password));?>; // qPost
+	var moisession = <?php echo(json_encode($moisession));?>; // qPost
 </script>
 
 </head>
@@ -210,20 +284,7 @@
 
 <?php
 
-$hitsleft = hits_left($game_id);
-function turn_output($game_id, $player_id){ 
-	// int -> int -> null
-	$whos_turn = whos_turn($game_id);
-	$turn_id = $whos_turn[0];
-	$enemy_id = $player_id==1?2:1;
-	global $hitsleft;
-	if($turn_id == $player_id) {
-		varjson("Your hits left are: ".$hitsleft);
-	}else{
-		varjson("Enemy's hits left are: ".$hitsleft);
-	}
-}
-
+/*** Displaying Functions ***/
 function label_graphs($label, $ocean, $class='') {
 	// int -> HTMLString -> str -> HTMLString
 	return ('<div class="wrapmusic '.$class.'">'.'<div class="label">'.$label.'</div>'.$ocean.'</div>');
@@ -326,19 +387,17 @@ function output($shiplist, $hits, $game_id, $player_id, $myships=true){
 		}
 
 		$string .= outputShips($shiplist, $hitscoords, $hits, false);
-		
 		$lastThree = array_slice($hits, 0, 3);
-		foreach($hits as $hit){ // needle, haystack 
+		foreach($hits as $hit){ 
 			$numhit = $hit[0]+$hit[1]*9;
 			$hidehitbox = !in_array($numhit, $hitcoords );
-			$last31     =  in_array($hit, $lastThree);
+			$imrecent     =  in_array($hit, $lastThree);
 			$sunkcoords2 = (in_array($numhit, $hitcoords)
 				?'<div class="exes fas fa-times"></div>':'<div></div>');
 
-			if($hidehitbox&&!$last31){ continue; }else{
-				// hitbox or sunken ship (handle outside?)
-			}
-			$last3 = $last31&&(strlen($sunkcoords2)===11)?' lastthree':'';
+			if($hidehitbox&&!$imrecent){ continue; }
+
+			$last3 = $imrecent&&(strlen($sunkcoords2)===11)?' lastthree':'';
 			$styles = cssstyles(
 				  [ [ 'margin-left',(40*$hit[0]).'px'
 				  ]	, [ 'margin-top',(40*$hit[1]).'px'
@@ -352,13 +411,23 @@ function output($shiplist, $hits, $game_id, $player_id, $myships=true){
 	return $string;
 };
 
-$ocean = new_ocean();
+/*** End game functions ***/
 
-$shiplist = get_ships_from_db($game_id, $player_id);
-$fleethealth  = nameships(shiphitbool(shipsarray(get_ships_from_db($game_id, $player_id)),getHitsFromDb($game_id, $player_id)));
-$fleethealth2 = nameships(shiphitbool(shipsarray(get_ships_from_db($game_id, $enemy_id)),getHitsFromDb($game_id, $enemy_id)));
-$giveoptions = true;
-$hideenemy = true;
+$hitsleft = hits_left($game_id);
+
+function turn_output($game_id, $player_id){
+	// int -> int -> null
+	$whos_turn = whos_turn($game_id);
+	$turn_id = $whos_turn[0];
+	global $enemy_id;
+	global $hitsleft;
+	if($turn_id == $player_id) {
+		varjson("Your hits left are: ".$hitsleft);
+	}else{
+		varjson("Enemy's hits left are: ".$hitsleft);
+	}
+}
+
 function gameover($go, $pid, $fh, $mon){
 	// bool -> int -> [[str|bool]]-> "int" -> bool
 	if($go===false){ return false; }
@@ -375,6 +444,16 @@ function gameover($go, $pid, $fh, $mon){
 	return true;
 	
 }
+
+
+/*** Set and display state of game ***/
+
+$ocean = new_ocean();
+$shiplist = get_ships_from_db($game_id, $player_id);
+$fleethealth  = nameships(shiphitbool(shipsarray(get_ships_from_db($game_id, $player_id)),getHitsFromDb($game_id, $player_id)));
+$fleethealth2 = nameships(shiphitbool(shipsarray(get_ships_from_db($game_id, $enemy_id)),getHitsFromDb($game_id, $enemy_id)));
+$giveoptions = true;
+$hideenemy = true;
 $dash  = '<div id="dash">';
 $map   = '<div id="maps">';
 $map .= label_graphs(
@@ -383,22 +462,26 @@ $map .= label_graphs(
 	, 'friendly');
 $shiplist2 = get_ships_from_db($game_id, $enemy_id);
 
-
 $moneyme  = get_money_from_db($game_id, $player_id);
-$monenemy = get_money_from_db($game_id, $player_id===1?2:1);
+$monenemy = get_money_from_db($game_id, $enemy_id);
 
 $giveoptions = gameover($giveoptions, $player_id, $fleethealth, $moneyme);
 $giveoptions = gameover($giveoptions, $enemy_id, $fleethealth2, $monenemy);
 
 $map .= label_graphs("enemy ships", output($shiplist2, getHitsFromDb($game_id, $enemy_id), $game_id, $enemy_id, false), $hideenemy?'enemy':'friendly');
-	
-	
+
+turn_output($game_id, $player_id);
 if($giveoptions){ 
-	$map .= managefleet($game_id, $password, $fleethealth);
-	//$dash .= createBox();
+	$map .= managefleet($game_id, $moisession, $fleethealth);
 }
-$dash.= $map.'</div>';
+
+$dash .= $map.'</div>';
 echo $dash;
+
+$signout  = '<form method="post" action="/battleships/index.php">';
+$signout .= '<input name="signout" type="submit" value="Sign out">';
+$signout .= '</form>';
+echo($signout);
 ?>
 
 	<script defer> 
@@ -435,20 +518,6 @@ echo $dash;
 		//coinjar.appendChild(gencoin())
 		
 		cmd.appendChild(bigbox)
-
-		var mondiv = newdiv()
-		mondiv.classList.add('infodiv')
-		mondiv.innerText = 'Your money is: $' + money + '. '
-		console.log('MONEY: ', mondiv.innerText)
-		//cmd.appendChild(mondiv)
-
-		// ------ not money 
-		var turninfo = <?php turn_output($game_id, $player_id); ?>;
-		var turndiv = newdiv()
-		turndiv.classList.add('infodiv')
-		turndiv.innerText = turninfo + '.'
-		console.log('TURNINFO: ', turndiv.innerText)
-		//cmd.appendChild(turndiv)
 		
 		cmd.innerHTML += <?php echo json_encode(createBox()); ?>;
 	</script>

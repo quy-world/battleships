@@ -7,10 +7,6 @@ function arrayof(collection) {
 }
 const buyships = arrayof(document.getElementById('shipbox').getElementsByClassName('ship'))
 
-function get(url){
-  return //http response code, and result	
-}
-
 function siblingNumber(thing) { 
 // we pass through a reference of the thing, 
 	// then we check to find the thing (using that same thing) in it's list of things
@@ -30,10 +26,32 @@ function offset(num){
 }
 
 function sendHit(x, y){ // procedure
-	//alert('sendshit', x, y)
-	//return;
-	window.location = 'http://localhost/battleships/output.php'+'?'
-						+'hitx='+x +'&hity='+y +'&game_id='+game_id + '&password='+password
+	//return;	
+	alert(['sending hit x, y', x, y].join(';'))
+	var theform = document.createElement('form')
+	theform.style.display = 'none';
+	theform.action = "/battleships/output.php"
+	theform.method = "post"
+	theform.type = "hidden"
+	var mi = () => document.createElement('input')
+	var fx = mi()
+	var fy = mi()
+	var fs = mi()
+	var gid = mi()
+	fx.name = 'hitx'
+	fy.name = 'hity'
+	fs.name = 'moisession'
+	gid.name = 'game_id'
+	fx.value = x
+	fy.value = y
+	fs.value = moisession
+	gid.value = game_id
+	theform.appendChild(fx)
+	theform.appendChild(fy)
+	theform.appendChild(fs)
+	theform.appendChild(gid)
+	document.body.appendChild(theform)
+	theform.submit();
 }
 
 
@@ -179,7 +197,10 @@ function getLength(elem){ return offset(shipheight(elem)>shipwidth(elem)?shiphei
 function sendShip(x, y, length, orien){
 	console.log( '0 normal, 1 vert, 2 normal rev, 3 vert rev')
 	alert(['sending ship x y length orien', x, y, length, orien].join(';'))
+	//return;
+	
 	var theform = document.createElement('form')
+	theform.style.display = 'none';
 	theform.action = "/battleships/output.php"
 	theform.method = "post"
 	theform.type = "hidden"
@@ -200,12 +221,11 @@ function sendShip(x, y, length, orien){
 	var pw = mi()
 	gid.name = "game_id"
 	gid.value = game_id
-	pw.name = "password"
-	pw.value = password;
+	pw.name = "moisession"
+	pw.value = moisession;
 	([fx, fy, sl, or, gid, pw]).forEach(a => theform.appendChild(a))
 	document.body.appendChild(theform)
-	theform.submit()
-	
+	theform.submit()		
 }
 
 function mousedownShip(e){

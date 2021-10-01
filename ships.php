@@ -1,6 +1,6 @@
 <?php
 
-include('./util.php');
+//include('./util.php');
 
  function loadfleet($shiplist) {
 	 $ocean = new_ocean();
