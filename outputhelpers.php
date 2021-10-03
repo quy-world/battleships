@@ -265,9 +265,9 @@ function whos_turn($game_id) {
 	return [$results['player_id'], $results['hits_left']];
 }
 
-function update_turn($game_id, $current_id, $qry_hits_left) {
+function update_turn($game_id, $player_id, $qry_hits_left) {
 	// int -> int -> int -> null
-	bexec("UPDATE turn SET player_id=".$current_id.", hits_left=".$qry_hits_left." WHERE game_id=?", [$game_id]);
+	bexec("UPDATE turn SET player_id=".$player_id.", hits_left=".$qry_hits_left." WHERE game_id=?", [$game_id]);
 }
 
 function log_action($game_id, $action_type, $action_id) {

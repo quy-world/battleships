@@ -3,44 +3,17 @@
 	include('./battleshipgame.php');
 	include('./outputhelpers.php');
 	
-	if(isset($_POST['game_id'])){
-		$game_id = intval($_POST['game_id']);
-		$moisession = $_COOKIE['battleshipcookie'];
-	}
-	if(isset($_GET['game_id'])){
-		$game_id = intval($_GET['game_id']);
-		$moisession = $_COOKIE['battleshipcookie'];
-	}
 	if(!isset($player_id)){
-		$usercookie = $_COOKIE["battleshipcookie"];
-		$sessionid  = substr($usercookie, 0, 6);
-		$usercookie2 = substr($usercookie, 6, strlen($usercookie));
-		$handle = getConnection();
-		$results = bqry("SELECT * from sessions WHERE sessionid=?", [$sessionid]);
-		$result  = $results[0];
-		if($result['token']!==hash("sha512", $result['tokensalt'].$usercookie2)){
-			die('THIS IS NOT YOUR SESSION');
-		}else{
-			$player_id = intval($result['userid']);
-			$results = bqry("SELECT * FROM games WHERE game_id=?", [$game_id]);
-			$result = $results[0];
-			$enemy_id = intval($result['userid_A'])===$player_id?intval($result['userid_B']):intval($result['userid_A']);
-		}
-	}	
+		$player_id = intval($_COOKIE["playerid"]);
+		$enemy_id = intval($_COOKIE["enemyid"]);
+		$game_id = intval($_COOKIE["gameid"]);
+	}
 	
 	$results = bqry("SELECT * FROM users WHERE userid=?", [$player_id]);
-	
-	$results = bqry("SELECT * FROM users WHERE userid=?", [$player_id]);
-	
 	$name = $results[0]['username'];
 	echo '<h2> Signed in as : '.$name.'</h2>';
-	//echo $player_id, json_encode(is_bool($enemy_id));
-	if(!isset($enemy_id)){
-		$results = bqry("SELECT * FROM games WHERE game_id=?", [$game_id]);
-		$result = $results[0];
-		$enemy_id = intval($result['userid_A'])===$player_id?intval($result['userid_B']):intval($result['userid_A']);
-	}
 	
+	echo('pPPP'. $player_id.$enemy_id);
 	$pureships = getShipsPure();
 	function getshipdetails($shiptypeid=false){
 		global $pureships;
@@ -123,7 +96,7 @@
 		bexec('INSERT INTO hits (game_id,player_id,x,y) VALUES (?,?,?,?)', [$_POST['game_id'], $enemy_id, $x, $y]);
 		
 		// ADD HISTORY:
-		$hit_id = $handle->lastInsertId();
+		$hit_id = getConnection()->lastInsertId();
 		log_action($_POST['game_id'], 2, $hit_id);
 		$results = bqry("SELECT * FROM turn WHERE game_id=?", [$_POST['game_id']]);
 		$result=$results[0];

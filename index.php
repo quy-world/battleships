@@ -20,12 +20,13 @@
 			echo('you still hold a cookie');
 		}else{
 			$signedin = intval($result['userid']);
-		}
-		//}
-		
-		
+		}		
 	}
-
+	if(isset($_COOKIE["gameid"])){
+		setcookie("gameid", $_COOKIE["gameid"], 1);
+		setcookie("playerid", $_COOKIE["playerid"], 1);
+		setcookie("enemyid", $_COOKIE["enemyid"], 1);
+	}
 	/*** NEW USER ***/
 	if(isset($_POST['newuser'])){
 		$username = $_POST['newuser'];
@@ -158,8 +159,6 @@
 				$turrets = bqry("SELECT * FROM turretlocations WHERE shiptype_id=?", [$shiptype_id]);
 
 				if($player_id == $gameowner) { // give main player the first turn
-					/* $turnone = $handle->prepare("INSERT INTO turn (game_id, player_id, hits_left) VALUES (?,?,?)");
-					$turnone->execute([$game_id, $gameowner, count($turrets)]); */
 					bexec("INSERT INTO turn (game_id, player_id, hits_left) VALUES (?,?,?)", [$game_id, $gameowner, count($turrets)]);
 				}else{
 					bexec("INSERT INTO turn (game_id, player_id, hits_left) VALUES (?,?,?)", [$game_id, $signedin, count($turrets)]);

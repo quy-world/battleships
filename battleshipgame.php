@@ -9,6 +9,9 @@
 		$results = bqry("SELECT * FROM games WHERE game_id=?", [$game_id]);// $smt->fetchAll();
 		$result = $results[0];
 		$enemy_id = intval($result['userid_A'])===$player_id?intval($result['userid_B']):intval($result['userid_A']);
+		setcookie("gameid", $game_id, 0);  
+		setcookie("playerid", $player_id, 0);  
+		setcookie("enemyid", $enemy_id, 0);  
 	}
 	if(isset($_COOKIE['battleshipcookie'])){
 		$moisession = $_COOKIE['battleshipcookie'];
