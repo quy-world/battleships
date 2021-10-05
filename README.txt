@@ -1,6 +1,6 @@
 
 
-Welcome to my multiplayer battleships game, please find a live example on http://quy.world/.
+Welcome to my multiplayer battleships game, please find a live example on http://quy.world/battleships.
 However if you wish, you may also download and hook it up to a database yourself and try the 
 game on your own local server!
 
