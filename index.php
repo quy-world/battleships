@@ -1,12 +1,8 @@
 <?php
 	include('./outputhelpers.php');
 	include('./util.php');
-	// fetch all games
-	$handle = getConnection();
-	$smt = $handle->prepare("SELECT * FROM games");
-	$smt->execute();
-	$games = $smt->fetchAll();
-	// create new game and refresh to add this game
+	
+	function getfresh(){ header('Location: http://localhost/battleships/index.php'); }
 	
 	/*** CHECK FOR COOKIES ***/
 	if(isset($_COOKIE["battleshipcookie"])){
@@ -14,7 +10,6 @@
 		$sessionid  = substr($usercookie, 0, 6);
 		$usercookie2 = substr($usercookie, 6, strlen($usercookie));
 		$results = bqry("SELECT * from sessions WHERE sessionid=?", [$sessionid]);
-		//if(isset($result)){ // problem
 		$result  = $results[0];
 		if($result['token']!==hash("sha512", $result['tokensalt'].$usercookie2)){
 			echo('you still hold a cookie');
@@ -22,11 +17,11 @@
 			$signedin = intval($result['userid']);
 		}		
 	}
-	if(isset($_COOKIE["gameid"])){
+	/* if(isset($_COOKIE["gameid"])){
 		setcookie("gameid", $_COOKIE["gameid"], 1);
 		setcookie("playerid", $_COOKIE["playerid"], 1);
 		setcookie("enemyid", $_COOKIE["enemyid"], 1);
-	}
+	} */
 	/*** NEW USER ***/
 	if(isset($_POST['newuser'])){
 		$username = $_POST['newuser'];
@@ -70,27 +65,34 @@
 		 
 		/*** SET COOKIE ***/
 		setcookie("battleshipcookie", $sessionid.$randomtoken, $expiry);
-		header('Location: http://localhost/battleships/index.php');
+		getfresh();
 	}
 	
 	/*** NEW GAME ***/
 	if(isset($signedin)){
-		
+		//$pendingGames = bqry("SELECT * FROM pendinggames JOIN users ON users.userid =  pendinggames.userid WHERE pendinggames.userid!=?", [$signedin]);
 		$results = bqry("SELECT * FROM users WHERE userid=?", [$signedin]);
 		$name = $results[0]['username'];
 		echo '<h2> Signed in as : '.$name.'</h2>';
 		if(isset($_POST['signout'])){
 			setcookie("battleshipcookie", $_COOKIE["battleshipcookie"], 1); 
-			header('Location: http://localhost/battleships/index.php');
+			getfresh();
 		}
 		if(isset($_POST['gamename'])) {
 			$gamename = $_POST['gamename'];
-			bexec("INSERT INTO pendinggames (gamename, userid) VALUES (?,?)", [$gamename, $signedin]);
+			$newgameid = bexec("INSERT INTO games (gamename) VALUES (?)", [$gamename]);
+			bexec("INSERT INTO gameusers (gameid, userid, timestamp) VALUES (?,?,now())", [$newgameid, $signedin]);
 			
 		}
 		
 		/** Get Available Games **/
-		$pendingGames = bqry("SELECT * FROM pendinggames JOIN users ON users.userid =  pendinggames.userid WHERE pendinggames.userid!=?", [$signedin]);
+		$pendingGames = bqry("
+			SELECT * FROM (
+				SELECT users.username AS username, gameusers.gameid AS gameid, games.gamename AS gamename, users.userid AS userid, gameusers.userid AS guid, count(gameusers.gameid) AS usernum from users 
+					JOIN gameusers ON users.userid=gameusers.userid 
+					JOIN games     ON gameusers.gameid=games.gameid 
+					GROUP BY gameusers.gameid having usernum=1
+			) AS table1 WHERE userid!=?;", [$signedin]);
 		$str = '<h2>List of Pending Games: </h2> 
 			<form method="post" action="/battleships/index.php">';
 		forEach($pendingGames as $p){
@@ -106,77 +108,80 @@
 		
 		if(isset($_POST['joingame'])){
 			$arr = explode(',', $_POST['joingame']);
+			
 			$signedin = intval($arr[0]);
 			$gameowner = intval($arr[1]);
-			$game_id = intval($arr[2]);
+			$gameid = intval($arr[2]);
 			$gamename = $arr[3];
-			
-			bexec("INSERT INTO games (game_id, game_name, userid_A, userid_B) VALUES (?, ?, ?, ?)", [$game_id, $gamename, $gameowner, $signedin]);
-			bexec("DELETE FROM pendinggames WHERE gameid=?", [$game_id]);
-			//insert money and history into db:
+			if(count(bqry("SELECT gameid FROM gameusers WHERE gameid=?", [$gameid]))<2){
+				bexec("INSERT INTO gameusers (gameid, userid, timestamp) VALUES (?,?,UNIX_TIMESTAMP())", [$gameid, $signedin]);
+				//insert money and history into db:
 
-			if($gameowner===$signedin){ die('gameowner and signed in are same ids'); } // qqq
-			bexec("INSERT INTO money (game_id, player_id, money) VALUES (?,?,?)", [$game_id, $gameowner, 500]);
-			bexec("INSERT INTO money (game_id, player_id, money) VALUES (?,?,?)", [$game_id, $signedin, 500]);
+				bexec("INSERT INTO money (gameid, playerid, money) VALUES (?,?,?), (?,?,?)", [$gameid, $gameowner, 500, $gameid, $signedin, 500]);
 
-			//assign random ship 
-			function assign_random($game_id, $handle, $player_id) { //  procedure
-				$invalid_ship=true;
-				$randx;
-				$randy;
-				$randlen;
-				$randhoriz;
-				global $gameowner, $signedin;
-				while($invalid_ship){
-					$randx = rand(0,8);
-					$randy = rand(0,8);
-					$randlen = rand(2,6);
-					$randhoriz = rand(0,1)==0?true:false;
-					if($randhoriz){
-						if(!($randlen>9-$randx)){$invalid_ship=false;}
-					}else{ // vertical
-						if(!($randlen>9-$randy)){$invalid_ship=false;}
+				//assign random ship 
+				function assign_random($gameid, $player_id) { //  procedure
+					$invalid_ship=true;
+					$randx;
+					$randy;
+					$randlen;
+					$randhoriz;
+					global $gameowner, $signedin;
+					while($invalid_ship){
+						$randx = rand(0,8);
+						$randy = rand(0,8);
+						$randlen = rand(2,6);
+						$randhoriz = rand(0,1)==0?true:false;
+						if($randhoriz){
+							if(!($randlen>9-$randx)){$invalid_ship=false;}
+						}else{ // vertical
+							if(!($randlen>9-$randy)){$invalid_ship=false;}
+						}
+					}
+					$lastHIT=0;
+					$sunkBool = 0;
+					//insert ship
+					$inputs = [$gameid, $player_id, $randx, $randy, $randlen, $randhoriz, $lastHIT, $sunkBool]; 
+					bexec("INSERT INTO ships (gameid,playerid,x,y,size,orientation, lasthitid, sunkbool) VALUES (?,?,?,?,?,?,?,?)", $inputs);
+
+					$skelresults = bqry("SELECT shiptype_id FROM shiptype WHERE length=?", [$randlen]);
+					$shiptype_id = $skelresults[0]['shiptype_id'];
+
+					//get turrets update turn
+					$turrets = bqry("SELECT * FROM turretlocations WHERE shiptype_id=?", [$shiptype_id]);
+
+					if($player_id == $gameowner) { // give main player the first turn
+						bexec("INSERT INTO turn (gameid, playerid, hitsleft) VALUES (?,?,?)", [$gameid, $gameowner, count($turrets)]);
+					}else{
+						bexec("INSERT INTO turn (gameid, playerid, hitsleft) VALUES (?,?,?)", [$gameid, $signedin, count($turrets)]);
 					}
 				}
-				$lastHIT=0;
-				$sunkBool = 0;
-				//insert ship
-				$inputs = [$game_id, $player_id, $randx, $randy, $randlen, $randhoriz, $lastHIT, $sunkBool]; 
-				bexec("INSERT INTO ships (game_id,player_id,x,y,size,orientation, last_hit_id, sunk_bool) VALUES (?,?,?,?,?,?,?,?)", $inputs);
-				if($player_id == $gameowner){
-					$ship_id = $handle->lastInsertId(); 
-					log_action($game_id, 0, $ship_id);
-				}
-				if($player_id == $signedin){
-					$ship_id = $handle->lastInsertId(); 
-					log_action($game_id, 1, $ship_id);
-				}
-
-				$skelresults = bqry("SELECT shiptype_id FROM shiptype WHERE length=?", [$randlen]);
-				$shiptype_id = $skelresults[0]['shiptype_id'];
-
-				//get turrets update turn
-				$turrets = bqry("SELECT * FROM turretlocations WHERE shiptype_id=?", [$shiptype_id]);
-
-				if($player_id == $gameowner) { // give main player the first turn
-					bexec("INSERT INTO turn (game_id, player_id, hits_left) VALUES (?,?,?)", [$game_id, $gameowner, count($turrets)]);
-				}else{
-					bexec("INSERT INTO turn (game_id, player_id, hits_left) VALUES (?,?,?)", [$game_id, $signedin, count($turrets)]);
-				}
+				assign_random($gameid, $gameowner);
+				assign_random($gameid, $signedin);		
 			}
-			assign_random($game_id, $handle, $gameowner);
-			assign_random($game_id, $handle, $signedin);		
+			getfresh();
 		}
 
 		/** Show Active Games **/
 		$str2 = '<h2>My Active Games: </h2>';
-		$activegames = bqry("SELECT * FROM games WHERE userid_A=? OR userid_B=?", [$signedin, $signedin]);
+		$activegames = bqry("SELECT * FROM 
+			(SELECT gameusers.gameid AS gameid, gameusers.userid AS userid, gamename 
+				FROM gameusers 
+				JOIN games ON gameusers.gameid=games.gameid 
+				WHERE gameusers.gameid 
+					IN (SELECT gameusers.gameid 
+							FROM gameusers 
+							JOIN games ON gameusers.gameid=games.gameid 
+							GROUP BY gameusers.gameid HAVING count(gameusers.gameid)=2
+						)
+			) AS temp WHERE userid=?;
+		", [$signedin]);
 		$str2 .= '<form method="post" action="/battleships/output.php">';
 		foreach($activegames as $a){
-			$arr = implode(',', [$signedin, $a['game_id']]);
+			$arr = implode(',', [$signedin, $a['gameid']]);
 			$str2 .= '<input type="radio" name="playgame" value="'.
 				$arr
-			.'" id="'.$a['game_id'].'" />'.'<label for="'.$a['game_id'].'">"'.$a['game_name'].'"</label>';
+			.'" id="'.$a['gameid'].'" />'.'<label for="'.$a['gameid'].'">"'.$a['gamename'].'"</label>';
 		}
 		$str2 .= '<input type="submit" value="Enter game">';
 		$str2 .= '</form>';
